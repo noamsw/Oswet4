@@ -2,7 +2,7 @@
 
 struct MallocMetaData
 {
-    size_t size; // the size of the effective allocation
+    size_t size; // the size of the total allocation
     bool is_free;
     MallocMetaData* next;
     MallocMetaData* prev;
@@ -17,11 +17,18 @@ void* smalloc(size_t size)
         return NULL;
     }
 
+    size_t total_size = size + sizeof(MallocMetaData);
+
     if (first_node == NULL) // there are no blocks in our list
     {
         // alocating MetaData
         first_node = (MallocMetaData*)sbrk(sizeof(MallocMetaData));
-        first_node->size = size;
+        if (first_node == (void*)(-1))
+        {
+            first_node = NULL;
+            return NULL;
+        }
+        first_node->size = total_size;
         first_node->is_free = false;
         first_node->next = NULL;
         first_node->prev = NULL;
@@ -30,7 +37,8 @@ void* smalloc(size_t size)
         void* block_ptr = sbrk(size);
         if (block_ptr == (void*)(-1))
         {
-            // free metadata?
+            sbrk((-sizeof(MallocMetaData)));
+            first_node = NULL;
             return NULL;
         }
         return block_ptr;
@@ -38,7 +46,6 @@ void* smalloc(size_t size)
 
     // else, there are nodes in the list
     // look for a free block thhat fits
-    size_t total_size = size + sizeof(MallocMetaData);
     MallocMetaData* curr_node = first_node;
     MallocMetaData* last_node = first_node; // if we wont find a block, update last_node->next
     while (curr_node != NULL)
@@ -53,7 +60,11 @@ void* smalloc(size_t size)
     {
         // insert MetaData
         MallocMetaData* new_meta = (MallocMetaData*)sbrk(sizeof(MallocMetaData));
-        new_meta->size = size;
+        if (new_meta == (void*)(-1))
+        {
+            return NULL;
+        }
+        new_meta->size = total_size;
         new_meta->is_free = false;
         new_meta->next = NULL;
         new_meta->prev = last_node;
@@ -63,25 +74,17 @@ void* smalloc(size_t size)
         void* block_ptr = sbrk(size);
         if (block_ptr == (void*)(-1))
         {
-            // free metadata?
+            last_node->next = NULL;
+            sbrk((-sizeof(new_meta)));
             return NULL;
         }
         return block_ptr;
     }
+
     else // we found a free node that fits
     {
-
+        curr_node->is_free = false;
+        return curr_node+sizeof(MallocMetaData);
     }
-
-
-    void* block_ptr = NULL; //ptr to the allocated block
-    if (block_ptr == (void*)(-1))
-    {
-        return NULL;
-    }
-
-    MAllocMetaData* node_to_alloc = first_node;
-    // if no node is alocced
-
     return NULL;
 }
