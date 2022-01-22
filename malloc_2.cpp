@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <cstring>
 
 struct MallocMetaData
 {
@@ -7,9 +8,13 @@ struct MallocMetaData
     MallocMetaData* next;
     MallocMetaData* prev;
 };
-MallocMetaData* first_node = NULL; // first node allocated by smalloc(?)
+MallocMetaData* first_node = NULL; // first node allocated by smalloc
 
-// iterate the list, allocate the first free block that fits
+size_t num_free_blocks = 0;
+size_t num_free_bytes = 0;
+size_t num_allocated_blocks = 0;
+size_t num_allocated_bytes = 0;
+
 void* smalloc(size_t size)
 {
     if (size == 0 || size >= 100000000)
@@ -41,6 +46,8 @@ void* smalloc(size_t size)
             first_node = NULL;
             return NULL;
         }
+        num_allocated_blocks++;
+        num_allocated_bytes += size;
         return block_ptr;
     }
 
@@ -78,6 +85,8 @@ void* smalloc(size_t size)
             sbrk((-sizeof(new_meta)));
             return NULL;
         }
+        num_allocated_blocks++;
+        num_allocated_bytes += size;
         return block_ptr;
     }
 
@@ -87,4 +96,78 @@ void* smalloc(size_t size)
         return curr_node+sizeof(MallocMetaData);
     }
     return NULL;
+}
+
+void* scalloc(size_t num, size_t size)
+{
+    size_t total_size = num*size;
+    void* allocated_block = smalloc(total_size);
+    if(allocated_block == NULL)
+    {
+        return NULL;
+    }
+    memset(allocated_block, 0, total_size);
+    return allocated_block;
+}
+
+void sfree(void* p)
+{
+    MallocMetaData* curr_meta = (MallocMetaData*)(p) - sizeof(MallocMetaData);
+    num_free_blocks++;
+    num_free_bytes += curr_meta->size;
+    curr_meta->is_free = true;
+}
+
+void* srealloc(void* oldp, size_t size)
+{
+    if (oldp == NULL)
+    {
+        return smalloc(size);
+    }
+
+    MallocMetaData* curr_meta = (MallocMetaData*)(oldp) - sizeof(MallocMetaData);
+    size_t old_size = curr_meta->size;
+    if(size <= curr_meta->size)
+    {
+        return oldp;
+    }
+
+    void* allocated_block = smalloc(size);
+    if(allocated_block == NULL)
+    {
+        return NULL;
+    }
+    memcpy(allocated_block, oldp, old_size);
+    sfree(oldp);
+    return allocated_block;
+}
+
+size_t _num_free_blocks()
+{
+    return num_free_blocks;
+}
+
+size_t _num_free_bytes()
+{
+    return num_free_bytes;
+}
+
+size_t _num_allocated_blocks()
+{
+    return num_allocated_blocks;
+}
+
+size_t _num_allocated_bytes()
+{
+    return num_allocated_bytes;
+}
+
+size_t _num_meta_data_bytes()
+{
+    return num_allocated_blocks*sizeof(MallocMetaData);
+}
+
+size_t _size_meta_data()
+{
+    return sizeof(MallocMetaData);
 }
