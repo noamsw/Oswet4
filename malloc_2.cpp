@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <cstring>
+#include "malloc_2.h"
 
 struct MallocMetaData
 {
@@ -93,6 +94,8 @@ void* smalloc(size_t size)
     else // we found a free node that fits
     {
         curr_node->is_free = false;
+        num_free_blocks--;
+        num_free_bytes-= (curr_node->size - sizeof(MallocMetaData));
         return curr_node+sizeof(MallocMetaData);
     }
     return NULL;
@@ -114,7 +117,7 @@ void sfree(void* p)
 {
     MallocMetaData* curr_meta = (MallocMetaData*)(p) - sizeof(MallocMetaData);
     num_free_blocks++;
-    num_free_bytes += curr_meta->size;
+    num_free_bytes += (curr_meta->size - sizeof(MallocMetaData));
     curr_meta->is_free = true;
 }
 
@@ -144,12 +147,28 @@ void* srealloc(void* oldp, size_t size)
 
 size_t _num_free_blocks()
 {
-    return num_free_blocks;
+    size_t free_blocks_count = 0;
+    MallocMetaData* curr_node = first_node;
+    while(curr_node != NULL)
+    {
+        if(curr_node->is_free)
+            free_blocks_count++;
+        curr_node = curr_node->next;
+    }
+    return free_blocks_count;
 }
 
 size_t _num_free_bytes()
 {
-    return num_free_bytes;
+    size_t free_blocks_size = 0;
+    MallocMetaData* curr_node = first_node;
+    while(curr_node != NULL)
+    {
+        if(curr_node->is_free)
+            free_blocks_size+= (curr_node->size - sizeof(MallocMetaData));
+        curr_node = curr_node->next;
+    }
+    return free_blocks_size;
 }
 
 size_t _num_allocated_blocks()
