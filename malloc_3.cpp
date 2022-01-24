@@ -1,8 +1,8 @@
 #include <unistd.h>
 #include <cstring>
 #include <iostream>
-#include "malloc_2.h"
-#define KB 1024;
+#include <sys/mman.h>
+#include "malloc_3.h"
 struct MallocMetaData
 {
     size_t total_size; // the size of the total allocation
@@ -26,7 +26,7 @@ void _insertNodeToBin(MallocMetaData* node){
     num_free_bytes += (node->total_size - sizeof(MallocMetaData));
     node->is_free = true;
     node->next_bin_list = NULL;
-    size_t index = node->total_size/KB;
+    size_t index = node->total_size/1024;
     if(bin[index]){ //if its not null
         MallocMetaData* curr_node = bin[index];
         MallocMetaData* last_node = bin[index];
@@ -58,7 +58,7 @@ void _insertNodeToBin(MallocMetaData* node){
 void _removeNodeFromBin(MallocMetaData* node){
     num_free_blocks--;
     num_free_bytes-= (node->total_size - sizeof(MallocMetaData));
-    size_t block_index  = node->total_size/KB;
+    size_t block_index  = node->total_size/1024;
     if(node==bin[block_index]) {
         if (node->next_bin_list) {
             bin[block_index] = node->prev_bin_list;
@@ -94,6 +94,49 @@ void _splitBlock(MallocMetaData* node, size_t size){
     node->next = second_block;
     second_block->prev = node;
     _insertNodeToBin(second_block);
+}
+void* _mergeBlock(MallocMetaData* low_node, MallocMetaData* high_node){ //recieves two adjacent blocks that will be merged
+    low_node->next = high_node->next;
+    low_node->total_size += high_node->total_size;
+    if(low_node->next){    //we already updated next to be the next of next
+        low_node->next->prev = low_node;
+    }
+    else{
+        last_aloc_node = low_node;
+    }
+    return low_node;
+}
+void* _superMerge(MallocMetaData* curr_meta, size_t size){
+    if(curr_meta->prev){
+        if(curr_meta->prev->is_free){
+            size_t size_free = curr_meta->total_size + curr_meta->prev->total_size - sizeof(MallocMetaData);
+            if(size_free>size){
+                _removeNodeFromBin(curr_meta->prev);
+                return _mergeBlock(curr_meta->prev, curr_meta);
+            }
+        }
+    }
+    if(curr_meta->next){
+        if(curr_meta->next->is_free){
+            size_t size_free = curr_meta->total_size + curr_meta->next->total_size - sizeof(MallocMetaData);
+            if(size_free>size){
+                _removeNodeFromBin(curr_meta->next);
+                return _mergeBlock(curr_meta, curr_meta->next);
+            }
+        }
+    }
+    if(curr_meta->next && curr_meta->prev){
+        if(curr_meta->next->is_free && curr_meta->prev->is_free){
+            size_t size_free = curr_meta->total_size + curr_meta->next->total_size + curr_meta->prev->total_size - sizeof(MallocMetaData);
+            if(size_free>size){
+                _removeNodeFromBin(curr_meta->next);
+                _mergeBlock(curr_meta, curr_meta->next);
+                _removeNodeFromBin(curr_meta->prev);
+                return _mergeBlock(curr_meta->prev, curr_meta);
+            }
+        }
+    }
+    return NULL;
 }
 void* _wilderness(size_t size){
     size_t size_needed = size - last_aloc_node->total_size + sizeof(MallocMetaData);
@@ -146,11 +189,28 @@ void* _smalloc(size_t size){
     num_allocated_bytes += size;
     return block_ptr;
 }
+void* _mmap(size_t size){
+    size_t total_size = size + sizeof(MallocMetaData);
+    void* map = mmap(NULL, total_size, PROT_NONE, MAP_ANONYMOUS, -1, 0);
+    if(map == (void*)(-1)){
+        return NULL;
+    }
+    MallocMetaData* mmaped_node = (MallocMetaData*)(map);
+    mmaped_node->total_size = total_size;
+    mmaped_node->prev_bin_list = NULL;
+    mmaped_node->next_bin_list = NULL;
+    mmaped_node->prev = NULL;
+    mmaped_node->next = NULL;
+    mmaped_node->is_free = NULL;
+    num_allocated_bytes+=size;
+    num_allocated_blocks++;
+    return static_cast<unsigned char*>(map) + sizeof(MallocMetaData);
+}
 MallocMetaData* _checkAndUpdateBin(size_t size){
     size_t total_size = size + sizeof(MallocMetaData);
     size_t block_index = -1;
     //check if there is a free block of appropiate size in the list at out initial index
-    size_t init_index = total_size/KB;
+    size_t init_index = total_size/1024;
     MallocMetaData* curr_node = NULL;
     if(bin[init_index]){
         curr_node = bin[init_index];
@@ -182,10 +242,12 @@ void* smalloc(size_t size)
 {
     if(!init){//initialize the freeblock array
         init = true;
-        for (int i = 0; i<128; i++){
-            bin[i] = NULL;
+        for (auto & i : bin){
+            i = NULL;
         }
     }
+    if(size>=128*1024)
+        return _mmap(size);
     if (size == 0 || size >= 100000000)//check that size is valid
     {
         return NULL;
@@ -219,6 +281,12 @@ void sfree(void* p)
         return;
     MallocMetaData* curr_meta = (MallocMetaData*)(static_cast<unsigned char*>(p) - sizeof(MallocMetaData));
     // std::cout << "total_size of freed block= " << curr_meta->total_size << std::endl;
+    if(curr_meta->total_size >= (128*1024 + sizeof(MallocMetaData))){
+        num_allocated_blocks--;
+        num_allocated_bytes-=(curr_meta->total_size- sizeof(MallocMetaData));
+        munmap(curr_meta, curr_meta->total_size);
+        return;
+    }
     if(curr_meta->is_free)
         return;
     MallocMetaData *next = curr_meta->next;
@@ -271,7 +339,18 @@ void* srealloc(void* oldp, size_t size)
     {
         return oldp;
     }
-
+    if(size > 128* 1024){
+        void* newmap = _mmap(size);
+        if(!newmap)
+            return NULL;
+        memcpy(newmap, oldp, old_size);
+        sfree(oldp);
+        return newmap;
+    }
+    void* merged_block = _superMerge(curr_meta, size);
+    if(merged_block){
+        return merged_block;
+    }
     void* allocated_block = smalloc(size);
     if(allocated_block == NULL)
     {
