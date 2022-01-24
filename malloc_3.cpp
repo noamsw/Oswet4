@@ -23,8 +23,9 @@ size_t num_allocated_blocks = 0;
 size_t num_allocated_bytes = 0;
 void _insertNodeToBin(MallocMetaData* node){
     size_t index = node->total_size/1024;
-    if(bin[index]){
+    if(bin[index]){ //if its not null
         MallocMetaData* curr_node = bin[index];
+        MallocMetaData* last_node = bin[index];
         while(curr_node){
             if(curr_node->total_size >= node->total_size){
                 if(curr_node->prev_bin_list){
@@ -38,12 +39,22 @@ void _insertNodeToBin(MallocMetaData* node){
                     node->prev_bin_list = NULL;
                 }
                 node->next_bin_list = curr_node;
+                node->is_free = true;
                 return;
             }
+            last_node = curr_node;
+            curr_node = curr_node->next_bin_list;
         }
+        last_node->next_bin_list = node;
+        node->prev_bin_list = last_node;
+        node->next_bin_list = NULL;
+        node->is_free = true;
+        return;
     }
     bin[index] = node;
     node->prev_bin_list = NULL;
+    node->next_bin_list = NULL;
+    node->is_free = true;
 }
 void _removeNodeFromBin(MallocMetaData* node){
     size_t block_index  = node->total_size/1024;
