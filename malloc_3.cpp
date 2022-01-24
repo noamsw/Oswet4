@@ -14,21 +14,66 @@ struct MallocMetaData
 };
 MallocMetaData* first_node = NULL; // first node allocated by smalloc
 MallocMetaData* last_aloc_node = NULL; //last node allocated by smalloc
-MallocMetaData* free_block_bin[128];   //bin of free blocks lists
+MallocMetaData* bin[128];   //bin of free blocks lists
 bool init = false;
 
 size_t num_free_blocks = 0;
 size_t num_free_bytes = 0;
 size_t num_allocated_blocks = 0;
 size_t num_allocated_bytes = 0;
+void _insertNodeToBin(MallocMetaData* node){
+    size_t index = node->total_size/1024;
+    if(bin[index]){
+        MallocMetaData* curr_node = bin[index];
+        while(curr_node){
+            if(curr_node->total_size >= node->total_size){
+                if(curr_node->prev_bin_list){
+                    curr_node->prev_bin_list->next_bin_list = node;
+                    node->prev_bin_list = curr_node->prev_bin_list;
+                    curr_node->prev_bin_list = node;
+                }
+                else{
+                    curr_node->prev_bin_list = node;
+                    bin[index] = node;
+                    node->prev_bin_list = NULL;
+                }
+                node->next_bin_list = curr_node;
+                return;
+            }
+        }
+    }
+    bin[index] = node;
+    node->prev_bin_list = NULL;
+}
+void _removeNodeFromBin(MallocMetaData* node){
+    size_t block_index  = node->total_size/1024;
+    if(node==bin[block_index]) {
+        if (node->next_bin_list) {
+            bin[block_index] = node->prev_bin_list;
+            bin[block_index]->prev_bin_list = NULL;
+        }
+        else{
+            bin[block_index] = NULL;
+        }
+    }
+    else{
+        if (node->next_bin_list) {
+            node->next_bin_list->prev_bin_list = node->prev_bin_list;
+        }
+        node->prev_bin_list->next_bin_list = node->next_bin_list;
+    }
+    node->is_free = false;
+    node->prev_bin_list = NULL;
+    node->next_bin_list = NULL;
+}
 MallocMetaData* checkAndUpdateBin(size_t size){
     size_t total_size = size + sizeof(MallocMetaData);
     size_t block_index = -1;
     //check if there is a free block of appropiate size in the list at out initial index
     size_t init_index = total_size/1024;
     MallocMetaData* curr_node = NULL;
-    if(free_block_bin[init_index]){
-        MallocMetaData* curr_node = free_block_bin[init_index];
+    if(bin[init_index]){
+        MallocMetaData* curr_node = bin[init_index];
         while (curr_node != NULL) {
             if (curr_node->total_size >= total_size){
                 block_index = init_index;
@@ -39,29 +84,15 @@ MallocMetaData* checkAndUpdateBin(size_t size){
     }
     if(!curr_node){
         for(size_t index = init_index+1; index<128; index++){
-            if(free_block_bin[index]){
-                curr_node = free_block_bin[index];
+            if(bin[index]){
+                curr_node = bin[index];
                 block_index = index;
                 break;
             }
         }
     }
     if(curr_node){
-        if(curr_node==free_block_bin[block_index]) {
-            if (curr_node->next_bin_list) {
-                free_block_bin[block_index] = curr_node->prev_bin_list;
-                free_block_bin[block_index]->prev_bin_list = NULL;
-            }
-        }
-        else{
-            if (curr_node->next_bin_list) {
-                curr_node->next_bin_list->prev_bin_list = curr_node->prev_bin_list;
-            }
-            curr_node->prev_bin_list->next_bin_list = curr_node->next_bin_list;
-        }
-        curr_node->is_free = false;
-        curr_node->prev_bin_list = NULL;
-        curr_node->next_bin_list = NULL;
+        _removeNodeFromBin(curr_node);
         return curr_node;
     }
     return nullptr;
@@ -71,7 +102,7 @@ void* smalloc(size_t size)
     if(!init){//initialize the freeblock array
         init = true;
         for (int i = 0; i<128; i++){
-            free_block_bin[i] = NULL;
+            bin[i] = NULL;
         }
     }
     if (size == 0 || size >= 100000000)//check that size is valid
@@ -137,7 +168,6 @@ void* scalloc(size_t num, size_t size)
     memset(allocated_block, 0, total_size);
     return allocated_block;
 }
-
 void sfree(void* p)
 {
     if(p==NULL)
@@ -146,7 +176,38 @@ void sfree(void* p)
     // std::cout << "total_size of freed block= " << curr_meta->total_size << std::endl;
     if(curr_meta->is_free)
         return;
-    if(curr_meta->next->is_free)
+    MallocMetaData *next = curr_meta->next;
+    if(next){
+        if(next->is_free){
+            _removeNodeFromBin(next);
+            num_free_blocks--;
+            curr_meta->next = next->next;
+            curr_meta->total_size += next->total_size;
+            if(curr_meta->next){    //we already updated next to be the next of next
+                curr_meta->next->prev = curr_meta;
+            }
+            else{
+                last_aloc_node = curr_meta;
+            }
+        }
+    }
+    MallocMetaData *prev = curr_meta->prev;
+    if(prev){
+        if(prev->is_free){
+            _removeNodeFromBin(prev);
+            num_free_blocks--;
+            prev->next = curr_meta->next;
+            prev->total_size += curr_meta->total_size;
+            if(prev->next){    //we already updated next to be the next of curr
+                prev->next->prev = prev;
+            }
+            else{
+                last_aloc_node = prev;
+            }
+            curr_meta = prev;
+        }
+    }
+
     num_free_blocks++;
     num_free_bytes += (curr_meta->total_size - sizeof(MallocMetaData));
     curr_meta->is_free = true;
