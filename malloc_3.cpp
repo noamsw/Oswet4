@@ -284,10 +284,10 @@ void* smalloc(size_t size)
         }
     }
     size_t total_size = size + sizeof(MallocMetaData);
-    if(size>=128*1024)
-        return _mmap(size);
     if (size == 0 || size >= 100000000)//check that size is valid
         return NULL;
+    if(size>=128*1024)
+        return _mmap(size);
     MallocMetaData* curr_node = _checkAndUpdateBin(size);
     if(!curr_node) // there are no free blocks of appropriate size in our bin
         return _smalloc(size);  //we didnt return this at the beginning important
@@ -438,35 +438,36 @@ size_t _size_meta_data()
     return sizeof(MallocMetaData);
 }
 
-int main()
-{
-
-}
+//int main()
+//{
 //    std::cout << "size of meta data:  " << sizeof(MallocMetaData) << std::endl;
-//    void* first_block = smalloc(100);
+//    void* first_block = smalloc(1);
 //    std::cout << "first smalloc:" << std::endl;
 //    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
 //    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
 //    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
 //    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* _2_block = smalloc(1000000);
+//    unsigned long bad = -1;
+//    void* _2_block = smalloc(bad);
 //    std::cout << "2 smalloc:" << std::endl;
 //    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
 //    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
 //    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
 //    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* _3_block = smalloc(10);
+//    void* _3_block = scalloc(bad,1);
 //    std::cout << "3 smalloc:" << std::endl;
 //    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
 //    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
 //    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
 //    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* _4_block = smalloc(11e6);
+//    void* _4_block = scalloc(1,bad);
 //    std::cout << "4 smalloc:" << std::endl;
 //    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
 //    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
 //    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
 //    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
+//}
+//
 //    void* second_block = smalloc(10);
 //    sfree(first_block);
 //    void* third_block = smalloc(10);
