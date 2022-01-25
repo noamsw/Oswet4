@@ -89,7 +89,7 @@ void _removeNodeFromBin(MallocMetaData* node){  //removes a block from the bin, 
 }
 
 void _splitBlock(MallocMetaData* node, size_t size){    //splits a block into two, the original node stays valid, only smaller
-    if(node->total_size - size < 128 + 2*sizeof(MallocMetaData)){
+    if((node->total_size - size) < (128 + 2*sizeof(MallocMetaData))){
         return;
     }
     MallocMetaData* second_block = (MallocMetaData*)(static_cast<unsigned char*>((void*)(node)) + sizeof(MallocMetaData) + size);
@@ -101,7 +101,7 @@ void _splitBlock(MallocMetaData* node, size_t size){    //splits a block into tw
     if(!second_block->next){
         last_aloc_node = second_block;
     }
-    else{   //updated this also important
+    else{
         second_block->next->prev = second_block;
     }
     node->next = second_block;
@@ -163,7 +163,7 @@ void* _wilderness(size_t size){ //used to expand the wilderness node, it must be
     _removeNodeFromBin(last_aloc_node);
     num_allocated_bytes+=size_needed;
     last_aloc_node->total_size += size_needed;
-    return (last_aloc_node);
+    return (static_cast<unsigned char*>((void*)last_aloc_node) + sizeof(MallocMetaData));
 }
 
 void* _smalloc(size_t size){ // this is the case where we actually need to malloc a block
