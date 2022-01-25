@@ -127,6 +127,10 @@ MallocMetaData* _mergeBlock(MallocMetaData* low_node, MallocMetaData* high_node)
     else{
         last_aloc_node = low_node;
     }
+    unsigned char * dest = static_cast<unsigned char*>((void*)low_node)+sizeof(MallocMetaData);
+    unsigned char * src = static_cast<unsigned char*>((void*)high_node)+sizeof(MallocMetaData);
+    unsigned long cpysize = high_node->total_size- sizeof(MallocMetaData);
+    memcpy(dest ,src, cpysize);
     return low_node;
 }
 
@@ -168,12 +172,14 @@ MallocMetaData* _superMerge(MallocMetaData* curr_meta, size_t size){  //will att
     return NULL;
 }
 
-void* _wilderness(size_t size){ //used to expand the wilderness node, it must be free
+void* _wilderness(size_t size){ //used to expand the wilderness node
     size_t size_needed = size - last_aloc_node->total_size + sizeof(MallocMetaData);
     if(sbrk(size_needed) == (void*)(-1)){
         return  NULL;
     }
-    _removeNodeFromBin(last_aloc_node);
+    if(last_aloc_node->is_free){    // smalloc and realloc
+        _removeNodeFromBin(last_aloc_node);
+    }
     num_allocated_bytes+=size_needed;
     last_aloc_node->total_size += size_needed;
     return (static_cast<unsigned char*>((void*)last_aloc_node) + sizeof(MallocMetaData));
@@ -223,7 +229,7 @@ void* _smalloc(size_t size){ // this is the case where we actually need to mallo
 
 void* _mmap(size_t size){
     size_t total_size = size + sizeof(MallocMetaData);
-    void* map = mmap(NULL, total_size, PROT_NONE, MAP_ANONYMOUS, -1, 0);
+    void* map = mmap(NULL, total_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if(map == (void*)(-1)){
         return NULL;
     }
@@ -367,6 +373,9 @@ void* srealloc(void* oldp, size_t size)
         _splitBlock(merged_block, size);
         return static_cast<unsigned char*>((void*)(merged_block)) + sizeof(MallocMetaData); //we returned the metadata here
     }
+    if(curr_meta == last_aloc_node){
+        return _wilderness(size);
+    }
     void* allocated_block = smalloc(size);
     if(allocated_block == NULL)
     {
@@ -431,13 +440,29 @@ size_t _size_meta_data()
 
 //int main()
 //{
+//
+//}
 //    std::cout << "size of meta data:  " << sizeof(MallocMetaData) << std::endl;
-//    void* first_block = smalloc(1);
+//    void* first_block = smalloc(100);
+//    std::cout << "first smalloc:" << std::endl;
 //    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
 //    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
 //    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
 //    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    sfree(first_block);
+//    void* _2_block = smalloc(1000000);
+//    std::cout << "2 smalloc:" << std::endl;
+//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
+//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
+//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
+//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
+//    void* _3_block = smalloc(10);
+//    std::cout << "3 smalloc:" << std::endl;
+//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
+//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
+//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
+//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
+//    void* _4_block = smalloc(11e6);
+//    std::cout << "4 smalloc:" << std::endl;
 //    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
 //    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
 //    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
