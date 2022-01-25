@@ -26,7 +26,7 @@ void _insertNodeToBin(MallocMetaData* node){    //gets a node that wasnt free, a
     node->is_free = true;
     node->next_bin_list = NULL;
     size_t index = node->total_size/1024;
-    if(bin[index]){ //if its not null
+    if(bin[index]){ // the list is not empty
         MallocMetaData* curr_node = bin[index];
         bin[index] = node;
         node->next_bin_list = curr_node;
@@ -37,12 +37,12 @@ void _insertNodeToBin(MallocMetaData* node){    //gets a node that wasnt free, a
         MallocMetaData* last_node = bin[index];
         while(curr_node){
             if(curr_node->total_size >= node->total_size){
-                if(curr_node->prev_bin_list){
+                if(curr_node->prev_bin_list){ // were not the first node in the list
                     curr_node->prev_bin_list->next_bin_list = node;
                     node->prev_bin_list = curr_node->prev_bin_list;
                     curr_node->prev_bin_list = node;
                 }
-                else{
+                else{ // we are the first node
                     curr_node->prev_bin_list = node;
                     bin[index] = node;
                     node->prev_bin_list = NULL;
@@ -53,11 +53,14 @@ void _insertNodeToBin(MallocMetaData* node){    //gets a node that wasnt free, a
             last_node = curr_node;
             curr_node = curr_node->next_bin_list;
         }
+        // were the last node
         last_node->next_bin_list = node;
         node->prev_bin_list = last_node;
         return;
          */
     }
+
+    // the list is empty
     bin[index] = node;
     node->prev_bin_list = NULL;
 }
@@ -265,7 +268,8 @@ void* smalloc(size_t size)
             i = NULL;
         }
     }
-    if(size>=128*1024)  //i think that we need to update this to be total size
+    size_t total_size = size + sizeof(MallocMetaData);
+    if(total_size>=128*1024)  //i think that we need to update this to be total size
         return _mmap(size);
     if (size == 0 || size >= 100000000)//check that size is valid
         return NULL;
@@ -294,7 +298,7 @@ void sfree(void* p)
         return;
     MallocMetaData* curr_meta = (MallocMetaData*)(static_cast<unsigned char*>(p) - sizeof(MallocMetaData));
     // std::cout << "total_size of freed block= " << curr_meta->total_size << std::endl;
-    if(curr_meta->total_size >= (128*1024 + sizeof(MallocMetaData))){   //if this was mmaped
+    if(curr_meta->total_size >= 128*1024){   //if this was mmaped
         num_allocated_blocks--;
         num_allocated_bytes-=(curr_meta->total_size- sizeof(MallocMetaData));
         munmap(curr_meta, curr_meta->total_size);
@@ -337,7 +341,7 @@ void* srealloc(void* oldp, size_t size)
     {
         return oldp;
     }
-    if(size > 128* 1024){   //if we want more size than 128kb, mmap it
+    if(total_size > 128* 1024){   //if we want more size than 128kb, mmap it
         void* newmap = _mmap(size);
         if(!newmap)
             return NULL;
