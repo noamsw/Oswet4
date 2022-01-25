@@ -70,7 +70,7 @@ void _removeNodeFromBin(MallocMetaData* node){  //removes a block from the bin, 
     size_t block_index  = (node->total_size - sizeof(MallocMetaData))/1024;
     if(node==bin[block_index]) {    //if its the first node in the list
         if (node->next_bin_list) {  // if there is more than node in the list
-            bin[block_index] = node->next_bin_list; //this was a major mistake
+            bin[block_index] = node->next_bin_list;
             bin[block_index]->prev_bin_list = NULL;
         }
         else{
@@ -150,6 +150,8 @@ MallocMetaData* _superMerge(MallocMetaData* curr_meta, size_t size){  //will att
                     last_aloc_node  = curr_meta;
                 _removeNodeFromBin(curr_meta->next);
                 _mergeBlock(curr_meta, curr_meta->next);
+                if(curr_meta == last_aloc_node)  //if cur turned into wlderness block
+                    last_aloc_node  = curr_meta->prev;
                 _removeNodeFromBin(curr_meta->prev);
                 return _mergeBlock(curr_meta->prev, curr_meta);
             }
