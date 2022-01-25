@@ -284,10 +284,10 @@ void* smalloc(size_t size)
         }
     }
     size_t total_size = size + sizeof(MallocMetaData);
-    if(size>=128*1024)
-        return _mmap(size);
     if (size == 0 || size >= 100000000)//check that size is valid
         return NULL;
+    if(size>=128*1024)
+        return _mmap(size);
     MallocMetaData* curr_node = _checkAndUpdateBin(size);
     if(!curr_node) // there are no free blocks of appropriate size in our bin
         return _smalloc(size);  //we didnt return this at the beginning important
@@ -358,7 +358,10 @@ void* srealloc(void* oldp, size_t size)
         void* newmap = _mmap(size);
         if(!newmap)
             return NULL;
-        memcpy(newmap, oldp, old_size); //mmap returns a pointer to the data, so copy there
+        if (old_size > size)
+            memcpy(newmap, oldp, size);
+        else
+            memcpy(newmap, oldp, old_size); //mmap returns a pointer to the data, so copy there
         sfree(oldp);
         return newmap;
     }
@@ -438,62 +441,34 @@ size_t _size_meta_data()
     return sizeof(MallocMetaData);
 }
 
-int main()
-{
-
-}
-//    std::cout << "size of meta data:  " << sizeof(MallocMetaData) << std::endl;
-//    void* first_block = smalloc(100);
-//    std::cout << "first smalloc:" << std::endl;
-//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* _2_block = smalloc(1000000);
-//    std::cout << "2 smalloc:" << std::endl;
-//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* _3_block = smalloc(10);
-//    std::cout << "3 smalloc:" << std::endl;
-//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* _4_block = smalloc(11e6);
-//    std::cout << "4 smalloc:" << std::endl;
-//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* second_block = smalloc(10);
-//    sfree(first_block);
-//    void* third_block = smalloc(10);
-//    void* fourth_block = smalloc(10);
-//    sfree(third_block);
-//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    void* _5_block = smalloc(10);
-//    void* _6_block = smalloc(10);
-//    void* _7_block = smalloc(10);
-//    void* _8_block = smalloc(10);
-//    void* _9_block = smalloc(10);
-//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-//    sfree(_5_block);
-//    sfree(_6_block);
-//    sfree(_7_block);
-//    sfree(_8_block);
-//    sfree(_9_block);
-//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
+//int main()
+//{
+//    void* array[23];
+//    for (int i = 0 ; i < 23 ; ++i) {
+//        (array[i] = smalloc((128*1024 + 1)));
+//    }
+//
+//    for (int i = 0 ; i < (128*1024 + 1) ; ++i) {
+//        ((char *) array[0])[i] = 'b';
+//        ((char *) array[1])[i] = 'a';
+//    }
+//    sfree(array[0]);
+//
+//    (array[1] = srealloc(array[1], (128*1024 + 1) * 2));
+//
+//    for (int i = 0 ; i < (128*1024 + 1) ; ++i) {
+//        if (((char *) array[1])[i] != 'a') {
+//            std::cout << "realloc didnt copy the char a to index " << i << std::endl;
+//            break;
+//        }
+//    }
+//
+//    (array[1] = srealloc(array[1], (128*1024 + 1))); //test  decreasing
+//
+//    for (int i = 0 ; i < (128*1024 + 1) ; ++i) {
+//        if (((char *) array[1])[i] != 'a') {
+//            std::cout << "realloc didnt copy the char a to index " << i << std::endl;
+//            break;
+//        }
+//    }
 //}
-
-
