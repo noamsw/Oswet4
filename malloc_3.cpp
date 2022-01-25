@@ -438,10 +438,10 @@ size_t _size_meta_data()
     return sizeof(MallocMetaData);
 }
 
-//int main()
-//{
-//
-//}
+int main()
+{
+
+}
 //    std::cout << "size of meta data:  " << sizeof(MallocMetaData) << std::endl;
 //    void* first_block = smalloc(100);
 //    std::cout << "first smalloc:" << std::endl;
