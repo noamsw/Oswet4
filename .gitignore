@@ -2,3 +2,5 @@
 /.idea
 main_2.cpp
 *.txt
+test.cpp
+colors.h
