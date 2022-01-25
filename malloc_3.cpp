@@ -127,10 +127,10 @@ MallocMetaData* _mergeBlock(MallocMetaData* low_node, MallocMetaData* high_node)
     else{
         last_aloc_node = low_node;
     }
-    unsigned char * dest = static_cast<unsigned char*>((void*)low_node)+sizeof(MallocMetaData);
-    unsigned char * src = static_cast<unsigned char*>((void*)high_node)+sizeof(MallocMetaData);
-    unsigned long cpysize = high_node->total_size- sizeof(MallocMetaData);
-    memcpy(dest ,src, cpysize);
+//    unsigned char * dest = static_cast<unsigned char*>((void*)low_node)+sizeof(MallocMetaData);
+//    unsigned char * src = static_cast<unsigned char*>((void*)high_node)+sizeof(MallocMetaData);
+//    unsigned long cpysize = high_node->total_size- sizeof(MallocMetaData);
+//    memcpy(dest ,src, cpysize);
     return low_node;
 }
 
@@ -145,7 +145,8 @@ MallocMetaData* _superMerge(MallocMetaData* curr_meta, size_t size){  //will att
             if(!curr_meta->next){
                 _removeNodeFromBin(curr_meta->prev);
                 _mergeBlock(curr_meta->prev, curr_meta);
-                _wilderness(size);
+                void* new_wild_block = _wilderness(size);
+                return (MallocMetaData*)(static_cast<unsigned char*>((void*)new_wild_block) - sizeof(MallocMetaData));
             }
         }
     }
@@ -373,6 +374,8 @@ void* srealloc(void* oldp, size_t size)
 
     MallocMetaData* merged_block = _superMerge(curr_meta, size);  //try to merge it with the adjacent blocks
     if(merged_block){
+        void* dst = static_cast<unsigned char*>((void*)(merged_block)) + sizeof(MallocMetaData);
+        memcpy(dst, oldp, old_size);
         _splitBlock(merged_block, size);
         return static_cast<unsigned char*>((void*)(merged_block)) + sizeof(MallocMetaData); //we returned the metadata here
     }
@@ -440,8 +443,51 @@ size_t _size_meta_data()
 {
     return sizeof(MallocMetaData);
 }
-
+//
 //int main()
 //{
+//    void* array[23];
+//    (array[0] = smalloc(2240));
+//    (array[1] = smalloc(2240));
+//    (array[2] = smalloc(2240));
+//    (array[3] = smalloc(2240));
+//    (array[4] = smalloc(2240));
 //
+//    for (int i = 0 ; i < 2240 ; ++i) {
+//        ((char *) array[2])[i] = (char) i;
+//    }
+//
+//    sfree(array[3]);
+//    //char firstByteInFreedBlock = ((char *)array[3])[0];
+//
+//    void *last2ndItem = array[2];
+//    (array[2] = srealloc(array[2], 2240 * 2));
+//
+//    if (array[2] != last2ndItem) {
+//        std::cout << "srealloc not on right place" << std::endl;
+//    }
+//    //if (((char *)array[3])[0] != firstByteInFreedBlock) {
+//    //	std::cout << "content in freed right block changed" << std::endl;
+//    //}
+//
+//    for (int i = 0 ; i < 2240 ; ++i) {
+//        if (((char *) array[2])[i] != (char) i) {
+//            std::cout << "realloc didnt keep the char a to index " << i << std::endl;
+//            break;
+//        }
+//    }
+//
+//    sfree(array[1]);
+//    sfree(array[4]);
+//    (array[2] = srealloc(array[2], 2240 * 4));
+//
+//    if (array[2] != array[1]) {
+//        std::cout << "srealloc not on right place" << std::endl;
+//    }
+//    for (int i = 0 ; i < 2240 ; ++i) {
+//        if (((char *) array[1])[i] != (char) i) {
+//            std::cout << "realloc didnt copy the char a to index " << i << std::endl;
+//            break;
+//        }
+//    }
 //}
