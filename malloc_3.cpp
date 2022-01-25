@@ -335,7 +335,7 @@ void sfree(void* p)
 
 void* srealloc(void* oldp, size_t size)
 {
-    if (size == 0 || size >= 100000000) //not sure why we didnt check this
+    if (size == 0 || size >= 100000000)
     {
         return NULL;
     }
@@ -346,10 +346,8 @@ void* srealloc(void* oldp, size_t size)
     size_t total_size = size + sizeof(MallocMetaData);
     MallocMetaData* curr_meta = (MallocMetaData*)(static_cast<unsigned char*>(oldp) - sizeof(MallocMetaData));
     size_t old_size = curr_meta->total_size -sizeof(MallocMetaData);
-    if(total_size <= curr_meta->total_size) //if we have enough size, than use it
-    {
+    if(old_size == size)
         return oldp;
-    }
     if(size >= 128*1024){   //if we want more size than 128kb, mmap it
         void* newmap = _mmap(size);
         if(!newmap)
@@ -357,6 +355,11 @@ void* srealloc(void* oldp, size_t size)
         memcpy(newmap, oldp, old_size); //mmap returns a pointer to the data, so copy there
         sfree(oldp);
         return newmap;
+    }
+    if(total_size < curr_meta->total_size) //if we have enough size, than use it
+    {
+        _splitBlock(curr_meta, size);
+        return oldp;
     }
 
     MallocMetaData* merged_block = _superMerge(curr_meta, size);  //try to merge it with the adjacent blocks
