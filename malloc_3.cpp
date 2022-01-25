@@ -112,8 +112,9 @@ void _splitBlock(MallocMetaData* node, size_t size){    //splits a block into tw
 MallocMetaData* _mergeBlock(MallocMetaData* low_node, MallocMetaData* high_node){ //recieves two adjacent blocks that will be merged
     low_node->next = high_node->next;   //they are free, but not in the bin
     low_node->total_size += high_node->total_size;
-    if(low_node->next){    //we already updated next to be the next of next
-        low_node->next->prev = low_node;
+    MallocMetaData* new_next = low_node->next; // we already updated next to be the next of next
+    if(new_next){  // check if the new merged node is the last
+        new_next->prev = low_node;
     }
     else{
         last_aloc_node = low_node;
@@ -136,8 +137,6 @@ MallocMetaData* _superMerge(MallocMetaData* curr_meta, size_t size){  //will att
             size_t size_free = curr_meta->total_size + curr_meta->next->total_size - sizeof(MallocMetaData);
             if(size_free>size){
                 _removeNodeFromBin(curr_meta->next);
-                if(!curr_meta->next->next)  //if the next was the wilderness block, update cur to be wlderness block
-                    last_aloc_node  = curr_meta;
                 return _mergeBlock(curr_meta, curr_meta->next);
             }
         }
@@ -146,12 +145,8 @@ MallocMetaData* _superMerge(MallocMetaData* curr_meta, size_t size){  //will att
         if(curr_meta->next->is_free && curr_meta->prev->is_free){
             size_t size_free = curr_meta->total_size + curr_meta->next->total_size + curr_meta->prev->total_size - sizeof(MallocMetaData);
             if(size_free>size){
-                if(!curr_meta->next->next)  //if the next was the wilderness block, update cur to be wlderness block
-                    last_aloc_node  = curr_meta;
                 _removeNodeFromBin(curr_meta->next);
                 _mergeBlock(curr_meta, curr_meta->next);
-                if(curr_meta == last_aloc_node)  //if cur turned into wlderness block
-                    last_aloc_node  = curr_meta->prev;
                 _removeNodeFromBin(curr_meta->prev);
                 return _mergeBlock(curr_meta->prev, curr_meta);
             }
