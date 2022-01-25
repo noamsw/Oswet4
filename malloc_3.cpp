@@ -110,6 +110,7 @@ void _splitBlock(MallocMetaData* node, size_t size){    //splits a block into tw
 }
 
 MallocMetaData* _mergeBlock(MallocMetaData* low_node, MallocMetaData* high_node){ //recieves two adjacent blocks that will be merged
+    num_allocated_blocks--; // not sure yet
     low_node->next = high_node->next;   //they are free, but not in the bin
     low_node->total_size += high_node->total_size;
     MallocMetaData* new_next = low_node->next; // we already updated next to be the next of next
@@ -345,6 +346,7 @@ void* srealloc(void* oldp, size_t size)
         sfree(oldp);
         return newmap;
     }
+
     MallocMetaData* merged_block = _superMerge(curr_meta, size);  //try to merge it with the adjacent blocks
     if(merged_block){
         _splitBlock(merged_block, size);
@@ -412,18 +414,20 @@ size_t _size_meta_data()
     return sizeof(MallocMetaData);
 }
 
-int main()
-{
-    void* first_block = smalloc(10);
-    void* second_block = smalloc(20);
-    sfree(first_block);
-    void* third_block = smalloc(7);
-    void* fourth_block = smalloc(15);
-    sfree(third_block);
-    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
-    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
-}
+//int main()
+//{
+//    void* first_block = smalloc(200);
+//    void* second_block = smalloc(400);
+//    void* third_block = smalloc(600);
+//    void* fourth_block = smalloc(800);
+//    void* fifth_block = smalloc(1000);
+//    sfree(second_block);
+//    sfree(fourth_block);
+//    sfree(third_block);
+//    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
+//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
+//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
+//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
+//}
 
 
