@@ -4,6 +4,11 @@
 
 #ifndef OSWET4_MALLOC_3_H
 #define OSWET4_MALLOC_3_H
+#include <unistd.h>
+#include <cstring>
+#include <iostream>
+#include <sys/mman.h>
+
 struct MallocMetaData;
 void _insertNodeToBin(MallocMetaData* node);
 void _removeNodeFromBin(MallocMetaData* node);

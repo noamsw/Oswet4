@@ -24,8 +24,7 @@ void _insertNodeToBin(MallocMetaData* node){    //gets a node that wasnt free, a
     num_free_blocks++;  //in charge of incrementing counters
     num_free_bytes += (node->total_size - sizeof(MallocMetaData));
     node->is_free = true;
-    node->next_bin_list = NULL;
-    size_t index = node->total_size/1024;
+    size_t index = (node->total_size - sizeof(MallocMetaData))/1024;
     if(bin[index]){ // the list is not empty
         MallocMetaData* curr_node = bin[index];
         bin[index] = node;
@@ -59,16 +58,16 @@ void _insertNodeToBin(MallocMetaData* node){    //gets a node that wasnt free, a
         return;
          */
     }
-
     // the list is empty
     bin[index] = node;
+    node->next_bin_list = NULL;
     node->prev_bin_list = NULL;
 }
 
 void _removeNodeFromBin(MallocMetaData* node){  //removes a block from the bin, updates counters
     num_free_blocks--;
     num_free_bytes-= (node->total_size - sizeof(MallocMetaData));
-    size_t block_index  = node->total_size/1024;
+    size_t block_index  = (node->total_size - sizeof(MallocMetaData))/1024;
     if(node==bin[block_index]) {    //if its the first node in the list
         if (node->next_bin_list) {  // if there is more than node in the list
             bin[block_index] = node->next_bin_list; //this was a major mistake
@@ -171,7 +170,7 @@ void* _wilderness(size_t size){ //used to expand the wilderness node, it must be
 }
 
 void* _smalloc(size_t size){ // this is the case where we actually need to malloc a block
-    size_t total_size = size += sizeof(MallocMetaData);
+    size_t total_size = size + sizeof(MallocMetaData);
     if(last_aloc_node){ //if there is a last allocated node, and its free
         if(last_aloc_node->is_free){
             return _wilderness(size);
@@ -233,7 +232,7 @@ void* _mmap(size_t size){
 MallocMetaData* _checkAndUpdateBin(size_t size){    //used to see if there is an available free block of appropriate size
     size_t total_size = size + sizeof(MallocMetaData);
     //check if there is a free block of appropiate size in the list at out initial index
-    size_t init_index = total_size/1024;
+    size_t init_index = size/1024;
     MallocMetaData* curr_node = NULL;
     if(bin[init_index]){    //if our list in the histogram isnt empty see if there is a big enough block
         curr_node = bin[init_index];
@@ -269,7 +268,7 @@ void* smalloc(size_t size)
         }
     }
     size_t total_size = size + sizeof(MallocMetaData);
-    if(total_size>=128*1024)  //i think that we need to update this to be total size
+    if(size>=128*1024)
         return _mmap(size);
     if (size == 0 || size >= 100000000)//check that size is valid
         return NULL;
@@ -298,7 +297,7 @@ void sfree(void* p)
         return;
     MallocMetaData* curr_meta = (MallocMetaData*)(static_cast<unsigned char*>(p) - sizeof(MallocMetaData));
     // std::cout << "total_size of freed block= " << curr_meta->total_size << std::endl;
-    if(curr_meta->total_size >= 128*1024){   //if this was mmaped
+    if(curr_meta->total_size - sizeof(MallocMetaData) >= 128*1024){   //if this was mmaped
         num_allocated_blocks--;
         num_allocated_bytes-=(curr_meta->total_size- sizeof(MallocMetaData));
         munmap(curr_meta, curr_meta->total_size);
@@ -341,7 +340,7 @@ void* srealloc(void* oldp, size_t size)
     {
         return oldp;
     }
-    if(total_size > 128* 1024){   //if we want more size than 128kb, mmap it
+    if(size >= 128*1024){   //if we want more size than 128kb, mmap it
         void* newmap = _mmap(size);
         if(!newmap)
             return NULL;
@@ -416,22 +415,18 @@ size_t _size_meta_data()
     return sizeof(MallocMetaData);
 }
 
-/*
 int main()
 {
-//    void* first_block = smalloc(10);
-//    void* second_block = smalloc(20);
-//    sfree(first_block);
-//    void* third_block = smalloc(7);
-//    void* fourth_block = smalloc(15);
-//    sfree(third_block);
-    std::cout << "size of Mallocmetadata:  " << sizeof(MallocMetaData) << std::endl;
-//    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
-//    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
-//    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
+    void* first_block = smalloc(10);
+    void* second_block = smalloc(20);
+    sfree(first_block);
+    void* third_block = smalloc(7);
+    void* fourth_block = smalloc(15);
+    sfree(third_block);
+    std::cout << "allocated blocks =  " << _num_allocated_blocks() << std::endl;
+    std::cout << "allocated bytes = " << _num_allocated_bytes() << std::endl;
+    std::cout << "freed blocks = " << _num_free_blocks() << std::endl;
+    std::cout << "freed bytes = " << _num_free_bytes() << std::endl;
 }
-*/
-
-
 
 
